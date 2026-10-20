@@ -112,21 +112,34 @@ def patch_cpp(t):
     return t.replace('L"RustDesk"', f'L"{NAME}"')
 
 
+# macOS app bundle name (RustDesk's mac code derives paths from the app name, so
+# the bundle must be <NAME>.app with executable <NAME>).
+def patch_xcconfig(t):
+    t = re.sub(r'^PRODUCT_NAME\s*=.*$', f'PRODUCT_NAME = {NAME}', t, flags=re.M)
+    return re.sub(r'^PRODUCT_COPYRIGHT\s*=.*$', f'PRODUCT_COPYRIGHT = {COPYRIGHT}', t, flags=re.M)
+
+
 # --- Icons -------------------------------------------------------------------
 
 ICON_NAMES = {
     "icon.ico", "icon.png", "icon.svg", "logo.png", "logo.svg", "tray-icon.ico",
     "app_icon.ico", "32x32.png", "64x64.png", "128x128.png", "128x128@2x.png",
+    "mac-icon.png", "AppIcon.icns",
 }
-ICON_DIRS = ["res", "flutter/assets", "flutter/windows/runner/resources", "libs/portable"]
+ICON_DIRS = ["res", "flutter/assets", "flutter/windows/runner/resources", "flutter/macos/Runner",
+             "libs/portable"]
 
 
 def load_pillow():
     try:
         from PIL import Image
     except ImportError:
-        subprocess.check_call([sys.executable, "-m", "pip", "install", "--quiet", "pillow"],
-                              stdout=sys.stderr)
+        pip = [sys.executable, "-m", "pip", "install", "--quiet", "pillow"]
+        if subprocess.call(pip, stdout=sys.stderr) != 0:
+            # Homebrew Python on macOS runners refuses system-wide installs (PEP 668)
+            import site
+            subprocess.check_call(pip + ["--user", "--break-system-packages"], stdout=sys.stderr)
+            site.addsitedir(site.getusersitepackages())
         from PIL import Image
     return Image
 
@@ -184,6 +197,8 @@ def replace_icons():
             fit(Image, src, size).save(p)
         elif ext == ".ico":
             src.save(p, format="ICO", sizes=[(s, s) for s in (16, 24, 32, 48, 64, 128, 256)])
+        elif ext == ".icns":
+            src.save(p, format="ICNS")
         elif ext == ".svg":
             buf = io.BytesIO()
             src.resize((256, 256), Image.LANCZOS).save(buf, "PNG")
@@ -205,6 +220,7 @@ def main():
     edit("flutter/windows/runner/main.cpp", patch_cpp)
     edit("Cargo.toml", patch_cargo)
     edit("libs/portable/Cargo.toml", patch_cargo)
+    edit("flutter/macos/Runner/Configs/AppInfo.xcconfig", patch_xcconfig)
     replace_icons()
     log("done")
 

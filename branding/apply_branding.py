@@ -22,7 +22,11 @@ NAME = cfg["app_name"].strip()
 COMPANY = cfg["company"].strip()
 SERVER = cfg["server"].strip()
 KEY = cfg["public_key"].strip()
+WEBSITE = cfg.get("website", "").strip().rstrip("/")
 COPYRIGHT = f"Copyright (C) {COMPANY}. Based on RustDesk (AGPL-3.0)."
+# AGPL: the About screen must keep crediting the original project. This exact
+# text is protected from the RustDesk -> NAME rename below.
+CREDIT = "Based on RustDesk"
 
 
 # Log to stderr only: CI runs "build.py --print-features" and captures stdout.
@@ -117,6 +121,204 @@ def patch_cpp(t):
 def patch_xcconfig(t):
     t = re.sub(r'^PRODUCT_NAME\s*=.*$', f'PRODUCT_NAME = {NAME}', t, flags=re.M)
     return re.sub(r'^PRODUCT_COPYRIGHT\s*=.*$', f'PRODUCT_COPYRIGHT = {COPYRIGHT}', t, flags=re.M)
+
+
+# --- Rename everywhere the user can see it -----------------------------------
+
+def rename_lang(t):
+    return t.replace("RustDesk", NAME)
+
+
+DART_STRING = re.compile(r"'(?:[^'\\\n]|\\.)*'|\"(?:[^\"\\\n]|\\.)*\"")
+
+
+def rename_dart_strings(t):
+    """Rename RustDesk and rustdesk.com links inside Dart string literals only."""
+    def fix(m):
+        s = m.group(0)
+        if "RustDesk" in s and not any(k in s for k in ("com.rustdesk", "RustDeskTerminal", CREDIT)):
+            s = s.replace("RustDesk", NAME)
+        if WEBSITE:
+            s = re.sub(r"https?://(?:www\.)?rustdesk\.com[^'\"\s]*", WEBSITE, s)
+            if s[1:-1] == "rustdesk.com":
+                s = s[0] + WEBSITE.split("://")[-1] + s[-1]
+        return s
+    return DART_STRING.sub(fix, t)
+
+
+def patches(pairs):
+    """Exact text replacements; fails the build if the upstream code changed."""
+    def fn(t):
+        crlf = "\r\n" in t
+        t = t.replace("\r\n", "\n")
+        for old, new in pairs:
+            if new in t:  # already applied (insertions still contain the old text)
+                continue
+            if old not in t:
+                fail(f"UI patch target not found (RustDesk source changed): {old.strip()[:70]!r}")
+            t = t.replace(old, new)
+        return t.replace("\n", "\r\n") if crlf else t
+    return fn
+
+
+# --- New look: black & white theme ------------------------------------------
+
+THEME_PATCHES = [
+    ("static const Color grayBg = Color(0xFFEFEFF2);", "static const Color grayBg = Color(0xFFF4F4F5);"),
+    ("static const Color accent = Color(0xFF0071FF);", "static const Color accent = Color(0xFF111111);"),
+    ("static const Color accent50 = Color(0x770071FF);", "static const Color accent50 = Color(0x77111111);"),
+    ("static const Color accent80 = Color(0xAA0071FF);", "static const Color accent80 = Color(0xAA111111);"),
+    ("static const Color idColor = Color(0xFF00B6F0);", "static const Color idColor = Color(0xFF111111);"),
+    ("static const Color button = Color(0xFF2C8CFF);", "static const Color button = Color(0xFF111111);"),
+    ("primary: Colors.blue, secondary: accent, background: grayBg),",
+     "primary: Color(0xFF111111), secondary: accent, background: grayBg),"),
+    ("""    colorScheme: ColorScheme.dark(
+      primary: Colors.blue,
+      secondary: accent,""",
+     """    colorScheme: ColorScheme.dark(
+      primary: Colors.white,
+      secondary: Colors.white,"""),
+    ("""        backgroundColor: MyTheme.accent,
+        foregroundColor: Colors.white,
+        disabledForegroundColor: Colors.white70,""",
+     """        backgroundColor: Colors.white,
+        foregroundColor: Color(0xFF111111),
+        disabledForegroundColor: Colors.white70,"""),
+    ("""        fontWeight: FontWeight.bold,
+        color: accent80,""",
+     """        fontWeight: FontWeight.bold,
+        color: Colors.white70,"""),
+]
+
+# --- New home layout: dark icon rail + ID/password card + connect area -------
+
+HOME_PATCHES = [
+    ("const borderColor = Color(0xFF2F65BA);", "const borderColor = Color(0xFF111111);"),
+    ("""      children: [
+        buildLeftPane(context),
+        if (!isIncomingOnly) const VerticalDivider(width: 1),
+        if (!isIncomingOnly) Expanded(child: buildRightPane(context)),
+      ],""",
+     """      children: [
+        if (!isIncomingOnly) _buildCordRail(context),
+        if (isIncomingOnly) buildLeftPane(context),
+        if (!isIncomingOnly)
+          Container(
+            margin: const EdgeInsets.fromLTRB(16, 16, 4, 16),
+            clipBehavior: Clip.antiAlias,
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.background,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Theme.of(context).dividerColor),
+            ),
+            child: buildLeftPane(context),
+          ),
+        if (!isIncomingOnly) Expanded(child: buildRightPane(context)),
+      ],"""),
+    ("""  Widget _buildBlock({required Widget child}) {""",
+     """  Widget _buildCordRail(BuildContext context) {
+    Widget item(IconData icon, String tip, VoidCallback onTap,
+        {bool selected = false}) {
+      return Tooltip(
+        message: translate(tip),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: onTap,
+          child: Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: selected
+                  ? Colors.white.withOpacity(0.14)
+                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon,
+                color: selected ? Colors.white : Colors.white60, size: 22),
+          ),
+        ),
+      ).marginOnly(bottom: 8);
+    }
+
+    return Container(
+      width: 68,
+      color: const Color(0xFF0B0B0C),
+      padding: const EdgeInsets.symmetric(vertical: 14),
+      child: Column(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: loadIcon(40),
+          ).marginOnly(bottom: 22),
+          item(Icons.home_rounded, 'Home', () {}, selected: true),
+          if (!bind.isDisableSettings())
+            item(Icons.settings_rounded, 'Settings',
+                () => DesktopTabPage.onAddSetting()),
+          const Spacer(),
+          if (!bind.isDisableSettings())
+            item(
+                Icons.info_outline_rounded,
+                'About',
+                () => DesktopTabPage.onAddSetting(
+                    initialPage: SettingsTabKey.about)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBlock({required Widget child}) {"""),
+    ("""      Align(
+        alignment: Alignment.center,
+        child: loadLogo(),
+      ),
+      buildTip(context),""",
+     """      if (isIncomingOnly)
+        Align(
+          alignment: Alignment.center,
+          child: loadLogo(),
+        ),
+      buildTip(context),"""),
+    ("width: isIncomingOnly ? 280.0 : 200.0,", "width: isIncomingOnly ? 280.0 : 240.0,"),
+]
+
+CONNECT_PATCHES = [
+    ("""          borderRadius: const BorderRadius.all(Radius.circular(13)),
+          border: Border.all(color: Theme.of(context).colorScheme.background)),""",
+     """          borderRadius: const BorderRadius.all(Radius.circular(16)),
+          border: Border.all(color: Theme.of(context).dividerColor)),"""),
+]
+
+ABOUT_PATCHES = [
+    ("decoration: const BoxDecoration(color: Color(0xFF2c8cff)),",
+     "decoration: const BoxDecoration(color: Color(0xFF111111)),"),
+    # \x24 is "$" (Dart string interpolation)
+    ("'Copyright © \x24{DateTime.now().toString().substring(0, 4)} Purslane Tech Pte. Ltd.\\n$license',",
+     "'" + NAME + " © \x24{DateTime.now().toString().substring(0, 4)} " + COMPANY + ".\\n"
+     + CREDIT + " - Copyright © Purslane Tech Pte. Ltd.\\n$license',"),
+]
+
+
+def rebrand_ui():
+    edit("flutter/lib/common.dart", patches(THEME_PATCHES), required=True)
+    edit("flutter/lib/desktop/pages/desktop_home_page.dart", patches(HOME_PATCHES), required=True)
+    edit("flutter/lib/desktop/pages/connection_page.dart", patches(CONNECT_PATCHES), required=True)
+    edit("flutter/lib/desktop/pages/desktop_setting_page.dart", patches(ABOUT_PATCHES), required=True)
+    n = 0
+    for p in sorted((ROOT / "flutter/lib").rglob("*.dart")):
+        text, enc = read(p)
+        new = rename_dart_strings(text)
+        if new != text:
+            p.write_bytes(new.encode(enc, errors="surrogateescape"))
+            n += 1
+    log(f"renamed strings/links in {n} dart files")
+    n = 0
+    for p in sorted((ROOT / "src/lang").glob("*.rs")):
+        text, enc = read(p)
+        new = rename_lang(text)
+        if new != text:
+            p.write_bytes(new.encode(enc, errors="surrogateescape"))
+            n += 1
+    log(f"renamed RustDesk in {n} translation files")
 
 
 # --- Icons -------------------------------------------------------------------
@@ -221,6 +423,7 @@ def main():
     edit("Cargo.toml", patch_cargo)
     edit("libs/portable/Cargo.toml", patch_cargo)
     edit("flutter/macos/Runner/Configs/AppInfo.xcconfig", patch_xcconfig)
+    rebrand_ui()
     replace_icons()
     log("done")
 

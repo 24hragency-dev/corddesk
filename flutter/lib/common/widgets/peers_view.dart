@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter_hbb/desktop/widgets/cord_ui.dart';
 import 'dart:collection';
 
 import 'package:dynamic_layouts/dynamic_layouts.dart';
@@ -187,6 +188,19 @@ class _PeersViewState extends State<_PeersView>
       child: Consumer<Peers>(builder: (context, peers, child) {
         if (peers.peers.isEmpty) {
           gFFI.peerTabModel.setCurrentTabCachedPeers([]);
+          if (isDesktop) {
+            final isRecent = widget.peers.loadEvent == LoadEvent.recent;
+            return Center(
+              child: CordEmptyPeers(
+                title: isRecent ? translate('No recent sessions') : '',
+                message: isRecent
+                    ? translate(
+                        'When you connect to a remote desktop, it will appear here so you can quickly access it next time.')
+                    : translate(
+                        _emptyMessages[widget.peers.loadEvent] ?? 'Empty'),
+              ),
+            );
+          }
           return Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,

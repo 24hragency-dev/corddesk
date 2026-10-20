@@ -5,7 +5,6 @@ import 'dart:convert';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_hbb/common/widgets/connection_page_title.dart';
 import 'package:flutter_hbb/consts.dart';
 import 'package:flutter_hbb/desktop/widgets/popup_menu.dart';
 import 'package:flutter_hbb/models/state_model.dart';
@@ -20,6 +19,7 @@ import '../../common/widgets/peer_tab_page.dart';
 import '../../common/widgets/autocomplete.dart';
 import '../../models/platform_model.dart';
 import '../../desktop/widgets/material_mod_popup_menu.dart' as mod_menu;
+import '../widgets/cord_ui.dart';
 
 class OnlineStatusWidget extends StatefulWidget {
   const OnlineStatusWidget({Key? key, this.onSvcStatusChanged})
@@ -86,7 +86,14 @@ class _OnlineStatusWidgetState extends State<OnlineStatusWidget> {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Text(', ', style: TextStyle(fontSize: em)),
+                if (isIncomingOnly)
+                  Text(', ', style: TextStyle(fontSize: em))
+                else
+                  Container(
+                    width: 1,
+                    height: em + 4,
+                    color: CordColors.border(context),
+                  ).marginSymmetric(horizontal: 14),
                 Flexible(
                   child: InkWell(
                     onTap: onUsePublicServerGuide,
@@ -97,6 +104,8 @@ class _OnlineStatusWidgetState extends State<OnlineStatusWidget> {
                             translate('setup_server_tip'),
                             style: TextStyle(
                                 decoration: TextDecoration.underline,
+                                color:
+                                    isIncomingOnly ? null : CordColors.blue,
                                 fontSize: em),
                           ),
                         ),
@@ -110,6 +119,9 @@ class _OnlineStatusWidgetState extends State<OnlineStatusWidget> {
         );
 
     basicWidget() => Row(
+          mainAxisAlignment: isIncomingOnly
+              ? MainAxisAlignment.start
+              : MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Container(
@@ -221,6 +233,7 @@ class _ConnectionPageState extends State<ConnectionPage>
     super.initState();
     _allPeersLoader.init(setState);
     _idFocusNode.addListener(onFocusChanged);
+    cordRemoteIdFocusNode = _idFocusNode;
     if (_idController.text.isEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) async {
         final lastRemoteId = await bind.mainGetLastRemoteId();
@@ -242,6 +255,7 @@ class _ConnectionPageState extends State<ConnectionPage>
     windowManager.removeListener(this);
     _allPeersLoader.clear();
     _idFocusNode.removeListener(onFocusChanged);
+    if (cordRemoteIdFocusNode == _idFocusNode) cordRemoteIdFocusNode = null;
     _idFocusNode.dispose();
     _idEditingController.dispose();
     if (Get.isRegistered<IDTextEditingController>()) {
@@ -303,6 +317,24 @@ class _ConnectionPageState extends State<ConnectionPage>
 
   @override
   Widget build(BuildContext context) {
+    if (!bind.isIncomingOnly()) {
+      return Column(
+        children: [
+          CordCard(
+            padding: const EdgeInsets.fromLTRB(28, 26, 28, 28),
+            child: _buildRemoteIDTextField(context),
+          ),
+          const SizedBox(height: 18),
+          Expanded(
+            child: CordCard(
+              padding: const EdgeInsets.fromLTRB(20, 14, 8, 8),
+              child: PeerTabPage(),
+            ),
+          ),
+          const SizedBox(height: 12),
+        ],
+      );
+    }
     final isOutgoingOnly = bind.isOutgoingOnly();
     return Column(
       children: [
@@ -344,15 +376,37 @@ class _ConnectionPageState extends State<ConnectionPage>
   /// Search for a peer.
   Widget _buildRemoteIDTextField(BuildContext context) {
     var w = Container(
-      width: 320 + 20 * 2,
-      padding: const EdgeInsets.fromLTRB(20, 24, 20, 22),
-      decoration: BoxDecoration(
-          borderRadius: const BorderRadius.all(Radius.circular(13)),
-          border: Border.all(color: Theme.of(context).colorScheme.background)),
       child: Ink(
         child: Column(
           children: [
-            getConnectionPageTitle(context, false).marginOnly(bottom: 15),
+            Row(
+              children: [
+                Flexible(
+                  child: Text(translate('Control Remote Desktop'),
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                          fontSize: 26,
+                          fontWeight: FontWeight.w700,
+                          color: CordColors.title(context))),
+                ),
+                const SizedBox(width: 10),
+                Tooltip(
+                  waitDuration: const Duration(milliseconds: 300),
+                  message: translate("id_input_tip"),
+                  child: Icon(Icons.help_outline_rounded,
+                      size: 22, color: CordColors.muted(context)),
+                ),
+              ],
+            ),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                translate(
+                    'Enter the remote desktop ID to connect to another device.'),
+                style: TextStyle(
+                    fontSize: 15, color: CordColors.muted(context)),
+              ),
+            ).marginOnly(top: 8, bottom: 22),
             Row(
               children: [
                 Expanded(
@@ -428,13 +482,29 @@ class _ConnectionPageState extends State<ConnectionPage>
                           cursorColor:
                               Theme.of(context).textTheme.titleLarge?.color,
                           decoration: InputDecoration(
-                              filled: false,
+                              filled: true,
+                              fillColor: CordColors.card(context),
                               counterText: '',
                               hintText: _idInputFocused.value
                                   ? null
                                   : translate('Enter Remote ID'),
+                              prefixIcon: Icon(Icons.desktop_windows_outlined,
+                                      size: 26,
+                                      color: CordColors.muted(context))
+                                  .paddingOnly(left: 18, right: 12),
+                              prefixIconConstraints:
+                                  const BoxConstraints(minWidth: 56),
+                              enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                  borderSide: BorderSide(
+                                      color: CordColors.blue.withOpacity(0.6),
+                                      width: 1.6)),
+                              focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                  borderSide: const BorderSide(
+                                      color: CordColors.blue, width: 2)),
                               contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 15, vertical: 13)),
+                                  horizontal: 15, vertical: 20)),
                           controller: fieldTextEditingController,
                           inputFormatters: [IDTextInputFormatter()],
                           onChanged: (v) {
@@ -513,27 +583,14 @@ class _ConnectionPageState extends State<ConnectionPage>
                     );
                   },
                 )),
-              ],
-            ),
-            Padding(
-              padding: const EdgeInsets.only(top: 13.0),
-              child: Row(mainAxisAlignment: MainAxisAlignment.end, children: [
-                SizedBox(
-                  height: 28.0,
-                  child: ElevatedButton(
-                    onPressed: () {
-                      onConnect();
-                    },
-                    child: Text(translate("Connect")),
-                  ),
-                ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 14),
                 Container(
-                  height: 28.0,
-                  width: 28.0,
+                  height: 66.0,
+                  width: 66.0,
                   decoration: BoxDecoration(
-                    border: Border.all(color: Theme.of(context).dividerColor),
-                    borderRadius: BorderRadius.circular(8),
+                    color: CordColors.card(context),
+                    border: Border.all(color: CordColors.border(context)),
+                    borderRadius: BorderRadius.circular(14),
                   ),
                   child: Center(
                     child: StatefulBuilder(
@@ -543,9 +600,9 @@ class _ConnectionPageState extends State<ConnectionPage>
                               child: _menuOpen.value
                                   ? Transform.rotate(
                                       angle: pi,
-                                      child: Icon(IconFont.more, size: 14),
+                                      child: Icon(Icons.keyboard_arrow_down_rounded, size: 30),
                                     )
-                                  : Icon(IconFont.more, size: 14),
+                                  : Icon(Icons.keyboard_arrow_down_rounded, size: 30),
                               onTapDown: (e) {
                                 offset = e.globalPosition;
                               },
@@ -614,13 +671,27 @@ class _ConnectionPageState extends State<ConnectionPage>
                     ),
                   ),
                 ),
+              ],
+            ),
+            Padding(
+              padding: const EdgeInsets.only(top: 22.0),
+              child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                Flexible(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 450),
+                    child: CordGradientButton(
+                      icon: Icons.arrow_forward_rounded,
+                      label: translate("Connect"),
+                      onTap: () => onConnect(),
+                    ),
+                  ),
+                ),
               ]),
             ),
           ],
         ),
       ),
     );
-    return Container(
-        constraints: const BoxConstraints(maxWidth: 600), child: w);
+    return w;
   }
 }

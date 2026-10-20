@@ -1,4 +1,5 @@
 import 'dart:ui' as ui;
+import 'package:flutter_hbb/desktop/widgets/cord_ui.dart';
 
 import 'package:bot_toast/bot_toast.dart';
 import 'package:flutter/material.dart';
@@ -110,7 +111,7 @@ class _PeerTabPageState extends State<PeerTabPage>
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Obx(() => SizedBox(
-              height: 32,
+              height: isDesktop ? 46 : 32,
               child: Container(
                 padding: stateGlobal.isPortrait.isTrue
                     ? EdgeInsets.symmetric(horizontal: 2)
@@ -145,7 +146,9 @@ class _PeerTabPageState extends State<PeerTabPage>
         children: model.visibleEnabledOrderedIndexs.map((t) {
           final selected = model.currentTab == t;
           final color = selected
-              ? MyTheme.tabbar(context).selectedTextColor
+              ? (isDesktop
+                  ? CordColors.blue
+                  : MyTheme.tabbar(context).selectedTextColor)
               : MyTheme.tabbar(context).unSelectedTextColor
             ?..withOpacity(0.5);
           final hover = false.obs;
@@ -154,7 +157,7 @@ class _PeerTabPageState extends State<PeerTabPage>
               borderRadius: BorderRadius.circular(6));
           final decoBorder = BoxDecoration(
               border: Border(
-            bottom: BorderSide(width: 2, color: color!),
+            bottom: BorderSide(width: isDesktop ? 3 : 2, color: color!),
           ));
           counter += 1;
           return ReorderableDragStartListener(
@@ -169,8 +172,20 @@ class _PeerTabPageState extends State<PeerTabPage>
                         decoration: (hover.value
                             ? (selected ? decoBorder : deco)
                             : (selected ? decoBorder : null)),
-                        child: Icon(model.tabIcon(t), color: color)
-                            .paddingSymmetric(horizontal: 4),
+                        child: isDesktop
+                            ? Row(mainAxisSize: MainAxisSize.min, children: [
+                                Icon(model.tabIcon(t), color: color, size: 20),
+                                const SizedBox(width: 8),
+                                Text(model.tabTooltip(t),
+                                    style: TextStyle(
+                                        color: color,
+                                        fontSize: 14,
+                                        fontWeight: selected
+                                            ? FontWeight.w600
+                                            : FontWeight.normal)),
+                              ]).paddingSymmetric(horizontal: 8)
+                            : Icon(model.tabIcon(t), color: color)
+                                .paddingSymmetric(horizontal: 4),
                       ).paddingSymmetric(horizontal: 4),
                       onTap: isOptionFixed(kOptionPeerTabIndex)
                           ? null

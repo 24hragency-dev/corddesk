@@ -24,6 +24,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:window_size/window_size.dart' as window_size;
 import '../widgets/button.dart';
+import '../widgets/cord_ui.dart';
 
 class DesktopHomePage extends StatefulWidget {
   const DesktopHomePage({Key? key}) : super(key: key);
@@ -59,6 +60,9 @@ class _DesktopHomePageState extends State<DesktopHomePage>
   Widget build(BuildContext context) {
     super.build(context);
     final isIncomingOnly = bind.isIncomingOnly();
+    if (!isIncomingOnly) {
+      return _buildBlock(child: _buildCordHome(context));
+    }
     return _buildBlock(
         child: Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -68,6 +72,216 @@ class _DesktopHomePageState extends State<DesktopHomePage>
         if (!isIncomingOnly) Expanded(child: buildRightPane(context)),
       ],
     ));
+  }
+
+  Widget _buildCordHome(BuildContext context) {
+    final isOutgoingOnly = bind.isOutgoingOnly();
+    final canSettings = !bind.isDisableSettings();
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        CordSidebar(
+          onSettings: canSettings ? () => DesktopTabPage.onAddSetting() : null,
+          onAbout: canSettings
+              ? () => DesktopTabPage.onAddSetting(
+                  initialPage: SettingsTabKey.about)
+              : null,
+        ),
+        Expanded(
+          child: Container(
+            color: CordColors.background(context),
+            child: Column(
+              children: [
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        SizedBox(
+                          width: 400,
+                          child: SingleChildScrollView(
+                            controller: _leftPaneScrollController,
+                            child: Column(
+                              children: [
+                                if (!isOutgoingOnly) buildPresetPasswordWarning(),
+                                ChangeNotifierProvider.value(
+                                  value: gFFI.serverModel,
+                                  child: Consumer<ServerModel>(
+                                    builder: (context, model, child) =>
+                                        _buildCordDesktopCard(
+                                            context, model, isOutgoingOnly),
+                                  ),
+                                ),
+                                Obx(() => buildHelpCards(
+                                    stateGlobal.updateUrl.value)),
+                                const SizedBox(height: 20),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 20),
+                        Expanded(child: ConnectionPage()),
+                      ],
+                    ),
+                  ),
+                ),
+                if (!isOutgoingOnly)
+                  Container(
+                    height: 50,
+                    margin: const EdgeInsets.symmetric(horizontal: 20),
+                    decoration: BoxDecoration(
+                      border: Border(
+                          top: BorderSide(color: CordColors.border(context))),
+                    ),
+                    child: OnlineStatusWidget(),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCordDesktopCard(
+      BuildContext context, ServerModel model, bool isOutgoingOnly) {
+    final showOneTime = model.approveMode != 'click' &&
+        model.verificationMethod != kUsePermanentPassword;
+    final titleColor = CordColors.title(context);
+    void copy(String text) {
+      Clipboard.setData(ClipboardData(text: text));
+      showToast(translate("Copied"));
+    }
+
+    Widget label(String text) => Text(text,
+        style: TextStyle(fontSize: 15, color: CordColors.muted(context)));
+    Widget bar(Color color) => Container(
+          width: 4,
+          height: 66,
+          decoration: BoxDecoration(
+              color: color, borderRadius: BorderRadius.circular(2)),
+        );
+    Widget value(TextEditingController controller, double fontSize) =>
+        ValueListenableBuilder<TextEditingValue>(
+          valueListenable: controller,
+          builder: (context, v, _) => Text(
+            v.text,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+                fontSize: fontSize,
+                fontWeight: FontWeight.w700,
+                color: titleColor),
+          ),
+        );
+
+    return CordCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(translate("Your Desktop"),
+                        style: TextStyle(
+                            fontSize: 25,
+                            fontWeight: FontWeight.w700,
+                            color: titleColor)),
+                    const SizedBox(height: 10),
+                    Text(
+                        translate(isOutgoingOnly
+                            ? "outgoing_only_desk_tip"
+                            : "desk_tip"),
+                        style: TextStyle(
+                            fontSize: 14,
+                            height: 1.45,
+                            color: CordColors.muted(context))),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              const CordMonitorArt(),
+            ],
+          ),
+          if (!isOutgoingOnly) ...[
+            const SizedBox(height: 24),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                bar(CordColors.blue),
+                const SizedBox(width: 18),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      label(translate("ID")),
+                      const SizedBox(height: 6),
+                      GestureDetector(
+                        onDoubleTap: () => copy(model.serverId.text),
+                        child: value(model.serverId, 32),
+                      ),
+                    ],
+                  ),
+                ),
+                Column(
+                  children: [
+                    buildPopupMenu(context),
+                    const SizedBox(height: 8),
+                    CordIconButton(
+                      icon: Icons.copy_rounded,
+                      tooltip: translate("Copy"),
+                      onTap: () => copy(model.serverId.text),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                bar(CordColors.purple),
+                const SizedBox(width: 18),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      label(translate("One-time Password")),
+                      const SizedBox(height: 6),
+                      value(model.serverPasswd, 24),
+                    ],
+                  ),
+                ),
+                if (showOneTime) ...[
+                  CordIconButton(
+                    icon: Icons.refresh_rounded,
+                    tooltip: translate('Refresh Password'),
+                    onTap: () => bind.mainUpdateTemporaryPassword(),
+                  ),
+                  const SizedBox(width: 10),
+                  CordIconButton(
+                    icon: Icons.copy_rounded,
+                    tooltip: translate("Copy"),
+                    onTap: () => copy(model.serverPasswd.text),
+                  ),
+                ] else if (!bind.isDisableSettings())
+                  CordIconButton(
+                    icon: Icons.edit_rounded,
+                    tooltip: translate('Change Password'),
+                    onTap: () =>
+                        DesktopSettingPage.switch2page(SettingsTabKey.safety),
+                  ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
   }
 
   Widget _buildBlock({required Widget child}) {
@@ -599,6 +813,92 @@ class _DesktopHomePageState extends State<DesktopHomePage>
           isCardClosed = true;
         });
       }
+    }
+
+    if (!bind.isIncomingOnly()) {
+      final appName = bind.mainGetAppNameSync();
+      final isInstall = btnText == 'Install';
+      final cardTitle = title.isNotEmpty
+          ? translate(title)
+          : (btnText.isNotEmpty ? '${translate(btnText)} $appName' : '');
+      return Container(
+        margin: EdgeInsets.only(top: marginTop),
+        child: CordCard(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: CordColors.isDark(context)
+                ? const [Color(0xFF2A2230), Color(0xFF252338)]
+                : const [Color(0xFFFFF3EA), Color(0xFFFAEEFB)],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 54,
+                    height: 54,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFE1CF),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Icon(
+                        title == 'Status'
+                            ? Icons.system_update_rounded
+                            : Icons.gpp_maybe_rounded,
+                        color: const Color(0xFFF2621B),
+                        size: 32),
+                  ),
+                  const Spacer(),
+                  if (closeButton == true)
+                    IconButton(
+                      icon: Icon(Icons.close,
+                          color: CordColors.muted(context), size: 22),
+                      onPressed: closeCard,
+                    ),
+                ],
+              ),
+              if (cardTitle.isNotEmpty)
+                Text(cardTitle,
+                        style: TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.w700,
+                            color: CordColors.title(context)))
+                    .marginOnly(top: 18),
+              if (content.isNotEmpty)
+                Text(translate(content),
+                        style: TextStyle(
+                            fontSize: 15,
+                            height: 1.6,
+                            color: CordColors.muted(context)))
+                    .marginOnly(top: 10),
+              if (btnText.isNotEmpty)
+                CordGradientButton(
+                  icon: isInstall
+                      ? Icons.download_rounded
+                      : Icons.arrow_forward_rounded,
+                  label: isInstall
+                      ? '${translate(btnText)} $appName'
+                      : translate(btnText),
+                  onTap: onPressed,
+                ).marginOnly(top: 22),
+              if (help != null && link != null)
+                Center(
+                  child: InkWell(
+                    onTap: () async => await launchUrl(Uri.parse(link)),
+                    child: Text(translate(help),
+                        style: const TextStyle(
+                            decoration: TextDecoration.underline,
+                            color: CordColors.blue,
+                            fontSize: 13)),
+                  ),
+                ).marginOnly(top: 12),
+            ],
+          ),
+        ),
+      );
     }
 
     return Stack(

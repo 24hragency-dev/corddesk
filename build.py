@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# CordDesk branding - runs branding/apply_branding.py before every build
+import os as _cd_os, subprocess as _cd_sp, sys as _cd_sys
+_cd_sp.check_call([_cd_sys.executable, _cd_os.path.join(_cd_os.path.dirname(_cd_os.path.abspath(__file__)), "branding", "apply_branding.py")])
 
 import os
 import glob

@@ -1,14 +1,31 @@
 // CordDesk desktop look: sidebar, cards, gradient buttons and illustrations
 // used by the home page.
 
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:screen_retriever/screen_retriever.dart';
+import 'package:window_manager/window_manager.dart';
 
 import '../../common.dart';
 import '../../models/platform_model.dart';
 
 /// Lets the "Start a new connection" button focus the remote ID field.
 FocusNode? cordRemoteIdFocusNode;
+
+/// First-run size of the main window, shrunk to fit small screens.
+Future<void> cordSetDefaultMainWindowSize() async {
+  var size = const Size(1520, 930);
+  try {
+    final display = await screenRetriever.getPrimaryDisplay();
+    final area = display.visibleSize ?? display.size;
+    size = Size(min(size.width, area.width * 0.94),
+        min(size.height, area.height * 0.92));
+  } catch (_) {}
+  await windowManager.setSize(size);
+  await windowManager.center();
+}
 
 class CordColors {
   static const blue = Color(0xFF1F5EFF);

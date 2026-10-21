@@ -46,6 +46,7 @@ import 'package:flutter_hbb/native/win32.dart'
 import 'package:flutter_hbb/native/common.dart'
     if (dart.library.html) 'package:flutter_hbb/web/common.dart';
 import 'package:flutter_hbb/utils/http_service.dart' as http;
+import 'package:flutter_hbb/desktop/widgets/cord_ui.dart';
 
 final globalKey = GlobalKey<NavigatorState>();
 final navigationBarKey = GlobalKey();
@@ -2057,6 +2058,10 @@ Future<bool> restoreWindowPosition(WindowType type,
     debugPrint("No window position saved, trying to center the window.");
     switch (type) {
       case WindowType.Main:
+        if (isDesktop && !bind.isIncomingOnly()) {
+          await cordSetDefaultMainWindowSize();
+          break;
+        }
         // Center the main window only if no position is saved (on first run).
         if (isWindows || isLinux) {
           await windowManager.center();

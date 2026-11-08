@@ -2456,7 +2456,21 @@ pub fn rustdesk_interval(i: Interval) -> ThrottledInterval {
     ThrottledInterval::new(i)
 }
 
+// CordDesk default display settings: balanced picture quality at 60 fps
+// instead of the stock 30 fps. Applied before custom.txt, which may override them.
+fn apply_corddesk_display_defaults() {
+    let mut display = config::DEFAULT_DISPLAY_SETTINGS.write().unwrap();
+    for (k, v) in [
+        ("image_quality", "custom"),
+        ("custom_image_quality", "50"),
+        ("custom-fps", "60"),
+    ] {
+        display.entry(k.to_owned()).or_insert_with(|| v.to_owned());
+    }
+}
+
 pub fn load_custom_client() {
+    apply_corddesk_display_defaults();
     #[cfg(debug_assertions)]
     if let Ok(data) = std::fs::read_to_string("./custom.txt") {
         read_custom_client(data.trim());

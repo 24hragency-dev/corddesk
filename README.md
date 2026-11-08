@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/24hragency-dev/corddesk/releases/latest/download/CordDesk.exe"><b>Download for Windows</b></a> •
+  <a href="https://github.com/24hragency-dev/corddesk/releases/latest/download/CordDesk-Install.exe"><b>Download for Windows</b></a> •
   <a href="https://github.com/24hragency-dev/corddesk/releases/latest/download/CordDesk-Mac-AppleSilicon.dmg"><b>Mac (Apple Silicon)</b></a> •
   <a href="https://github.com/24hragency-dev/corddesk/releases/latest/download/CordDesk-Mac-Intel.dmg"><b>Mac (Intel)</b></a>
 </p>
@@ -16,7 +16,8 @@
 
 | Platform | Download |
 |---|---|
-| Windows 10 / 11 (64-bit) | [CordDesk.exe](https://github.com/24hragency-dev/corddesk/releases/latest/download/CordDesk.exe) |
+| Windows 10 / 11 (64-bit) | [CordDesk-Install.exe](https://github.com/24hragency-dev/corddesk/releases/latest/download/CordDesk-Install.exe) (installer) |
+| Windows, run without installing | [CordDesk.exe](https://github.com/24hragency-dev/corddesk/releases/latest/download/CordDesk.exe) |
 | Mac with Apple Silicon (M1 / M2 / M3 / M4) | [CordDesk-Mac-AppleSilicon.dmg](https://github.com/24hragency-dev/corddesk/releases/latest/download/CordDesk-Mac-AppleSilicon.dmg) |
 | Mac with Intel processor | [CordDesk-Mac-Intel.dmg](https://github.com/24hragency-dev/corddesk/releases/latest/download/CordDesk-Mac-Intel.dmg) |
 
@@ -26,8 +27,8 @@ All versions: [Releases](https://github.com/24hragency-dev/corddesk/releases)
 
 **Windows**
 
-1. Run `CordDesk.exe`. If Windows shows *"Windows protected your PC"*, click **More info → Run anyway**.
-2. Click **Install CordDesk** so it starts with Windows and works for unattended access.
+1. Run `CordDesk-Install.exe`. If Windows shows *"Windows protected your PC"*, click **More info → Run anyway**.
+2. Click **Accept and Install**. CordDesk starts with Windows, works for unattended access, and allows fast direct connections.
 3. Share your **ID** and **password** with the person who will connect, or enter their ID and click **Connect**.
 
 **Mac**
